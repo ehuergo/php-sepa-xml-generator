@@ -161,6 +161,12 @@ interface PaymentInfoInterface {
 		private $ultimateCreditor = '';
 
 		/**
+		 * This property is optional
+		 * @var string
+		 */
+		private $ultimateCreditorSIRET = '';
+
+		/**
 		 * @var bool
 		 */
 		private $useProprietary = true;
@@ -544,11 +550,30 @@ interface PaymentInfoInterface {
 		}
 
 		/**
+		 * This property is optional
+		 * @param $UltimateCreditorSIRET
+		 * @return $this
+		 */
+		public function setUltimateCreditorSIRET($UltimateCreditorSIRET) {
+
+			$this->ultimateCreditorSIRET = $UltimateCreditorSIRET;
+			return $this;
+		}
+
+		/**
 		 * @return string
 		 */
 		public function getUltimateCreditor() {
 
 			return $this->ultimateCreditor;
+		}
+
+		/**
+		 * @return string
+		 */
+		public function getUltimateCreditorSIRET() {
+
+			return $this->ultimateCreditorSIRET;
 		}
 
 		/**
@@ -798,11 +823,13 @@ interface PaymentInfoInterface {
                 throw new \Exception(ERROR_MSG_PM_METHOD_NOT_DEFINED);
             }
 			$paymentInfo->addChild('PmtMtd', $this->getPaymentMethod());
-			$paymentInfo->addChild('BtchBookg', $this->boolToString($this->getBatchBooking()));
 
 
-            $paymentInfo->addChild('NbOfTxs', $this->getNumberOfTransactions());
-            $paymentInfo->addChild('CtrlSum', $this->getControlSum());
+			if ( !$this->getCreditTransferTransactionObjects() ) {
+				$paymentInfo->addChild('BtchBookg', $this->boolToString($this->getBatchBooking()));
+				$paymentInfo->addChild('NbOfTxs', $this->getNumberOfTransactions());
+				$paymentInfo->addChild('CtrlSum', $this->getControlSum());
+			}
 
 
 
@@ -864,6 +891,7 @@ interface PaymentInfoInterface {
 
 
         protected function addPaymentTypeInfoToXml(\SimpleXMLElement $paymentInfo) {
+
             $paymentTypeInfo = $paymentInfo->addChild('PmtTpInf');
             $serviceLevel = $paymentTypeInfo->addChild('SvcLvl');
             $serviceLevel->addChild('Cd', self::SERVICE_LEVEL_CODE);
@@ -871,7 +899,7 @@ interface PaymentInfoInterface {
             $localInstrument = $paymentTypeInfo->addChild('LclInstrm');
             $localInstrument->addChild('Cd', $this->getLocalInstrumentCode());
 
-            if ($this->getSequenceType()) {
+            if ( $this->getSequenceType() && $this->getDocumentPainMode() === self::PAIN_008_001_02 ) {
                 $paymentTypeInfo->addChild('SeqTp', $this->getSequenceType());
             }
 
@@ -911,8 +939,16 @@ interface PaymentInfoInterface {
 
             //UltimateCreditor optional
             if ( !empty($this->UltimateCreditor) ) {
-
-                $paymentInfo->addChild('UltmtCdtr', $this->getUltimateCreditor());
+				//UltimateCreditorSIRET optional
+				if ( !empty($this->UltimateCreditorSIRET) ) {
+					$ultimateCreditor = $paymentInfo->addChild('UltmtCdtr');
+					$ultimateCreditor->addChild('Nm', $this->getUltimateCreditor());
+					$ultimateCreditorOthr = $ultimateCreditor->addChild('Id')->addChild('OrgId')->addChild('Othr');
+					$ultimateCreditorOthr->addChild('Id', $this->getUltimateCreditorSIRET());
+					$ultimateCreditorOthr->addChild('SchmeNm')->addChild('Prtry', 'SIRET');
+				} else {
+					$paymentInfo->addChild('UltmtCdtr', $this->getUltimateCreditor());
+				}
             }
 
             $paymentInfo->addChild('ChrgBr', self::CHARGE_BEARER);
